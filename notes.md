@@ -21,3 +21,6 @@
 - turned the activation into a constexpr flag (0=relu, 1=gelu): triton compiles one kernel per value, so there is no runtime branch cost. the wrapper takes a python string and converts it at launch.
 - no tl.math.tanh where i expected it, wrote tanh by hand as 1 - 2/(exp(2x)+1). exp overflowing to inf is harmless there, the formula just lands on +-1.
 - two-stage sum (per-chunk partials, then one program sums them) is deterministic, float atomic_add is not. deterministic is much easier to check against torch.
+- profiling without counters still works: 24-25 TFLOPS measured vs computed tensor peak 30.4 (3840 cores x 2 flops x 2 (tensor = 2x fp32 on GA10x) x 1.98 GHz) -> ~80% of roofline, compute bound. dram side only needs ~34 GB/s of the ~336 available, so memory is not the problem.
+- gemm re-read math: with 64x64 tiles, A and B are each re-read 32 times (~520 MB total vs 24 MB compulsory). a 3 MB L2 cannot hold either matrix whole, but block scheduling locality absorbs most of it, otherwise the kernel could not run at 0.7 ms.
+- ERR_NVGPUCTRPERM in wsl2 even with RmProfilingAdminOnly=0 on the windows driver: the setting only takes effect after `wsl --shutdown` reinitializes the driver. also sampled clocks with nvidia-smi during the kernel loop: 1980 MHz sustained, which is what the roofline used.

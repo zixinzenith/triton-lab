@@ -16,6 +16,8 @@ currently:
 - fused_matmul.py matmul with bias + relu/gelu epilogue fused in
 - reduction.py two-stage global sum
 - benchmark.py timing against the torch builtins
+- prof_matmul.py small entry script for ncu
+- profile.md bottleneck analysis of the matmul kernel
 - notes.md gotchas i ran into
 
 ## environment
@@ -45,7 +47,8 @@ python benchmark.py
 - [x] causal mask and multi-head for attention.py
 - [x] transpose, layernorm, epilogue fusion
 - [x] GQA support for the attention kernel
-- [ ] learn ncu, profile matmul, find the bottleneck
+- [x] profile matmul, find the bottleneck (ncu is blocked by wsl2 counters for now, see profile.md for the roofline math)
+- [ ] get ncu counters working in wsl (`wsl --shutdown` reinit), verify the roofline numbers
 - [ ] the rest of what the official attention has: dropout, better scheduling
 - [ ] try different tile sizes for transpose, maybe vectorized 128-bit accesses
 - [ ] a Welford version of layernorm, and an atomic version of the reduction
