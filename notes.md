@@ -11,3 +11,5 @@
 - flash attention 的精髓是 online softmax：kernel 里保存每行的 max 和 sum(exp)，每算完一块就 rescale（alpha = exp(m_old - m_new)），这样不用把 M x N 的分数矩阵写回显存。
 - torch.allclose 不能直接比 fp16 和 fp32 的 tensor，要先 .float() 转过来（今天踩的）。
 - 跑分时单次数字不可信，笔记本卡温度一高就降频，多跑几遍看趋势。
+- causal attention 的好处不光是省一半计算：上三角的块连 k/v 都不用 load，整块跳过；只有对角线那块需要 m >= n 的细粒度 mask。注意 pad 的位置也要一起挡掉，不然算出来是错的（踩过）。
+- 加了多头和 causal 之后和 sdpa 比还是差一点（0.335 vs 0.290 ms），官方 kernel 的调度更精细，暂时能接受。

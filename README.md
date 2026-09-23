@@ -10,7 +10,7 @@
 - softmax.py 按行的 softmax（朴素写法，没分块）
 - matmul.py 分块矩阵乘法（tl.dot），后面加了个 autotune 版本
 - num_stages.py matmul 上试 num_stages 流水线的对比
-- attention.py flash attention 的简化版（online softmax，不带 causal mask）
+- attention.py flash attention 简化版（online softmax，带 causal mask 和多头）
 - benchmark.py 和 torch 自带算子对比耗时
 - notes.md 踩坑记录
 
@@ -34,5 +34,6 @@ python benchmark.py
 
 - [x] matmul 开 software pipelining（num_stages），看看能追回多少差距
 - [x] 看 flash attention 是怎么做分块 softmax 的
-- [ ] 给 attention.py 加上 causal mask 和多头的支持
+- [x] 给 attention.py 加上 causal mask 和多头的支持
 - [ ] 学一下 ncu，给 matmul 做个 profile，看瓶颈在哪个
+- [ ] 看看官方 attention 比我多的东西：GQA、dropout、更好的流水线调度
