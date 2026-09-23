@@ -17,3 +17,7 @@
 - layernorm on padded rows: mean is fine with other=0.0 on the pad lanes, but variance is not, x - mean is nonzero there, must tl.where them to zero or the var is silently wrong.
 - epilogue fusion (bias+relu inside the matmul kernel): no real win when the gemm dominates (2048^3), but 1.6x on skinny shapes (16384x256x512) where torch wastes time round-tripping the intermediate through memory.
 - allclose with rtol matters: my fused matmul max err was 0.0625 and still fine, because the outputs are ~30 and rtol=1e-2 covers it. atol alone would have failed.
+- gqa is a one line change in the kernel: kv head index = q head index // (HQ // HKV). cuts the kv loads by that factor too, at 1x32x2048x128 causal my kernel went 3.5 -> 2.5 ms with hkv=8.
+- turned the activation into a constexpr flag (0=relu, 1=gelu): triton compiles one kernel per value, so there is no runtime branch cost. the wrapper takes a python string and converts it at launch.
+- no tl.math.tanh where i expected it, wrote tanh by hand as 1 - 2/(exp(2x)+1). exp overflowing to inf is harmless there, the formula just lands on +-1.
+- two-stage sum (per-chunk partials, then one program sums them) is deterministic, float atomic_add is not. deterministic is much easier to check against torch.

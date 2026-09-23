@@ -10,10 +10,11 @@ currently:
 - softmax.py row-wise softmax (naive, no inner blocking)
 - matmul.py blocked matmul (tl.dot), later added an autotune version
 - num_stages.py num_stages pipelining comparison on matmul
-- attention.py simplified flash attention (online softmax, causal mask, multi-head)
+- attention.py simplified flash attention (online softmax, causal mask, multi-head + GQA)
 - transpose.py naive vs tiled transpose, the memory coalescing lesson
 - layernorm.py LayerNorm forward, block reduction in one pass
-- fused_matmul.py matmul with a bias + relu epilogue fused in
+- fused_matmul.py matmul with bias + relu/gelu epilogue fused in
+- reduction.py two-stage global sum
 - benchmark.py timing against the torch builtins
 - notes.md gotchas i ran into
 
@@ -33,6 +34,7 @@ python attention.py
 python transpose.py
 python layernorm.py
 python fused_matmul.py
+python reduction.py
 python benchmark.py
 ```
 
@@ -42,7 +44,8 @@ python benchmark.py
 - [x] see how flash attention does the blocked softmax
 - [x] causal mask and multi-head for attention.py
 - [x] transpose, layernorm, epilogue fusion
+- [x] GQA support for the attention kernel
 - [ ] learn ncu, profile matmul, find the bottleneck
-- [ ] check what the official attention has that mine doesn't: GQA, dropout, better scheduling
+- [ ] the rest of what the official attention has: dropout, better scheduling
 - [ ] try different tile sizes for transpose, maybe vectorized 128-bit accesses
-- [ ] more epilogues for the matmul (gelu, residual add), and a Welford version of layernorm
+- [ ] a Welford version of layernorm, and an atomic version of the reduction
