@@ -1,24 +1,24 @@
 # triton-lab
 
-准备找 GPU 方向的工作，从 Triton 入手学 kernel 编程，这里放练习代码。
-大部分是照官方教程写的然后自己改了改，跑每个文件会打印和 torch 结果的对比，benchmark.py 里用 cuda event 计了时。
+preparing for gpu related jobs, learning kernel programming starting from triton. this repo is the practice ground.
+most of the code follows the official tutorials with my own tweaks. every script prints a comparison against torch, benchmark.py does cuda event timing.
 
-目前有：
+currently:
 
-- vector_add.py 向量加法，相当于 hello world
-- relu.py 自己写的 relu，外加一个 add + relu 融合的版本
-- softmax.py 按行的 softmax（朴素写法，没分块）
-- matmul.py 分块矩阵乘法（tl.dot），后面加了个 autotune 版本
-- num_stages.py matmul 上试 num_stages 流水线的对比
-- attention.py flash attention 简化版（online softmax，带 causal mask 和多头）
-- benchmark.py 和 torch 自带算子对比耗时
-- notes.md 踩坑记录
+- vector_add.py vector add, the hello world
+- relu.py my own relu, plus a fused add + relu version
+- softmax.py row-wise softmax (naive, no inner blocking)
+- matmul.py blocked matmul (tl.dot), later added an autotune version
+- num_stages.py num_stages pipelining comparison on matmul
+- attention.py simplified flash attention (online softmax, causal mask, multi-head)
+- benchmark.py timing against the torch builtins
+- notes.md gotchas i ran into
 
-## 环境
+## environment
 
-WSL2 + RTX 3060 Laptop，torch 2.14 / triton 3.8，都是 pip 装的。
+WSL2 + RTX 3060 Laptop, torch 2.14 / triton 3.8, both installed with pip.
 
-## 运行
+## run
 
 ```
 python vector_add.py
@@ -30,10 +30,10 @@ python attention.py
 python benchmark.py
 ```
 
-## 待办
+## todo
 
-- [x] matmul 开 software pipelining（num_stages），看看能追回多少差距
-- [x] 看 flash attention 是怎么做分块 softmax 的
-- [x] 给 attention.py 加上 causal mask 和多头的支持
-- [ ] 学一下 ncu，给 matmul 做个 profile，看瓶颈在哪个
-- [ ] 看看官方 attention 比我多的东西：GQA、dropout、更好的流水线调度
+- [x] software pipelining on matmul (num_stages), how much does it recover
+- [x] see how flash attention does the blocked softmax
+- [x] causal mask and multi-head for attention.py
+- [ ] learn ncu, profile matmul, find the bottleneck
+- [ ] check what the official attention has that mine doesn't: GQA, dropout, better scheduling

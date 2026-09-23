@@ -1,5 +1,5 @@
-# 练习：自己写个 relu，然后把 add 和 relu 融合到同一个 kernel 里
-# 融合的好处是 x+y 的中间结果不用写回显存，少一次读写
+# practice: write a relu myself, then fuse add + relu into one kernel
+# fusing means the intermediate x+y never goes back to memory, saves a round trip
 
 import torch
 import triton
@@ -16,7 +16,7 @@ def relu_kernel(x_ptr, out_ptr, n, BLOCK: tl.constexpr):
     tl.store(out_ptr + offs, y, mask=mask)
 
 
-# add 和 relu 写在一起就是融合了，感觉就是把两段代码拼起来
+# add and relu in one kernel, so this is what people mean by fusion
 @triton.jit
 def add_relu_kernel(x_ptr, y_ptr, out_ptr, n, BLOCK: tl.constexpr):
     pid = tl.program_id(0)
@@ -53,10 +53,10 @@ if __name__ == "__main__":
     y = torch.randn(8192, device="cuda")
 
     out1 = triton_relu(x)
-    print("relu 和 torch 一致吗:", torch.allclose(out1, torch.relu(x)))
+    print("relu matches torch:", torch.allclose(out1, torch.relu(x)))
 
     out2 = triton_add_relu(x, y)
     ref = torch.relu(x + y)
-    print("add+relu 和 torch 一致吗:", torch.allclose(out2, ref))
+    print("add+relu matches torch:", torch.allclose(out2, ref))
 
-    # TODO: 试试不同 BLOCK_SIZE 跑个时间对比
+    # TODO: try different BLOCK_SIZE and compare timings

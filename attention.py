@@ -1,9 +1,10 @@
-# flash attention 的核心思路：把 softmax 放进 kernel 里分块在线算，
-# 不用把 M x N 的分数矩阵写回显存（这玩意儿是 O(N^2) 的显存开销）
-# 这一版加上了 causal mask 和多头，形状是 [B, H, M, D]
-# causal 有个好玩的性质：上三角的块整个都是 -inf，可以一块都不用算，
-# 只需要对角线那一块做细粒度的 mask，这样大概省一半计算
-# 参考: https://triton-lang.org/main/getting-started/tutorials/06-fused-attention.html
+# flash attention idea: do the softmax inside the kernel block by block (online),
+# so the M x N score matrix never gets written to memory (that thing is O(N^2) memory)
+# this version has causal mask and multi-head, shapes are [B, H, M, D]
+# causal has a nice property: whole blocks above the diagonal are all -inf and can be
+# skipped entirely, only the diagonal block needs the fine grained m >= n mask,
+# which saves about half the compute
+# reference: https://triton-lang.org/main/getting-started/tutorials/06-fused-attention.html
 
 import torch
 import torch.nn.functional as F
@@ -36,12 +37,12 @@ def attn_kernel(q_ptr, k_ptr, v_ptr, o_ptr, sm_scale,
     q = tl.load(q_base + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qd,
                 mask=m_mask[:, None], other=0.0)
 
-    # online softmax 的三个状态：每行当前的 max、sum(exp)、加权和
+    # online softmax state: running max, running sum of exp, weighted sum so far
     m_i = tl.full((BLOCK_M,), -float("inf"), dtype=tl.float32)
     l_i = tl.zeros((BLOCK_M,), dtype=tl.float32)
     acc = tl.zeros((BLOCK_M, D), dtype=tl.float32)
 
-    # causal 时对角线之后（n > 本块最大的 m）整块都是 -inf，直接不用算
+    # causal: everything past the diagonal of this block is all -inf, skip it
     if CAUSAL:
         hi = tl.minimum(N, (pid_m + 1) * BLOCK_M)
     else:
@@ -55,13 +56,15 @@ def attn_kernel(q_ptr, k_ptr, v_ptr, o_ptr, sm_scale,
                     mask=n_mask[:, None], other=0.0)
         s = tl.dot(q, tl.trans(k)) * sm_scale
 
-        # 对角线那块要用 m >= n 挡住未来的位置，注意 pad 的位置也要挡掉
+        # diagonal block: mask out future positions with m >= n,
+        # padded positions must go too, or the result is quietly wrong (got bitten by this)
         if CAUSAL:
             s = tl.where((offs_m[:, None] >= offs_n[None, :]) & n_mask[None, :], s, -float("inf"))
         else:
             s = tl.where(n_mask[None, :], s, -float("inf"))
 
-        # rescale：来了新的更大的 max，把之前的 sum 和 acc 缩一下
+        # the rescale is the key trick: when a bigger max shows up,
+        # shrink the old sum and acc by exp(m_old - m_new)
         m_new = tl.maximum(m_i, tl.max(s, axis=1))
         alpha = tl.exp(m_i - m_new)
         p = tl.exp(s - m_new[:, None])
@@ -92,7 +95,7 @@ def triton_attn(q, k, v, sm_scale, causal=False, BLOCK_M=64, BLOCK_N=64):
 
 
 def ref_attn(q, k, v, sm_scale, causal=False):
-    # fp32 参考答案
+    # fp32 reference
     s = torch.matmul(q.float(), k.float().transpose(-1, -2)) * sm_scale
     if causal:
         mask = torch.triu(torch.ones(s.shape[-2], s.shape[-1], dtype=torch.bool, device=s.device), 1)
@@ -102,7 +105,7 @@ def ref_attn(q, k, v, sm_scale, causal=False):
 
 if __name__ == "__main__":
     torch.manual_seed(0)
-    # M、N 故意不整除，测一下 mask
+    # M/N on purpose not divisible, to test the mask
     B, H, M, N, D = 2, 3, 500, 700, 64
     sm_scale = 1.0 / D ** 0.5
     q = torch.randn((B, H, M, D), device="cuda", dtype=torch.float16)
@@ -112,11 +115,11 @@ if __name__ == "__main__":
     for causal in [False, True]:
         out = triton_attn(q, k, v, sm_scale, causal=causal)
         ref = ref_attn(q, k, v, sm_scale, causal=causal)
-        name = "causal " if causal else "普通   "
-        print(name, "和 fp32 参考一致吗:", torch.allclose(out.float(), ref, atol=1e-2, rtol=1e-2),
-              " 最大误差:", (out.float() - ref).abs().max().item())
+        name = "causal" if causal else "plain "
+        print(name, "matches fp32 ref:", torch.allclose(out.float(), ref, atol=1e-2, rtol=1e-2),
+              " max err:", (out.float() - ref).abs().max().item())
 
-    # 大一点的尺寸对比耗时（causal）
+    # bigger size for timing (causal)
     B, H, M, N, D = 1, 8, 2048, 2048, 64
     q = torch.randn((B, H, M, D), device="cuda", dtype=torch.float16)
     k = torch.randn((B, H, N, D), device="cuda", dtype=torch.float16)

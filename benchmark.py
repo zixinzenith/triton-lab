@@ -1,5 +1,5 @@
-# 用 cuda event 简单对比一下自己写的 kernel 和 torch 自带的差多少
-# 计时方法: 先 warmup 几次，然后把多次调用夹在两个 event 之间取平均
+# quick timing comparison of my kernels vs the torch builtins, using cuda events
+# how i time: warm up a few times, then sandwich many calls between two events and average
 
 import torch
 import triton
@@ -49,8 +49,8 @@ def main():
     t5 = bench(lambda: mm.matmul_auto(a, b, c), times=20)
     t6 = bench(lambda: torch.matmul(a, b), times=20)
     flops = 2.0 * M * N * K
-    # 本来以为会慢很多，结果这个尺寸下居然比 cublas 还快一点，
-    # 可能是 cublas 对这个 shape 挑的 kernel 一般，换个大点的尺寸再看看
+    # expected to lose badly, turns out my kernel actually beats cublas at this size,
+    # maybe cublas picks a bad kernel for this shape, should try bigger sizes later
     print("matmul 2048^3 fp16: triton %.3f ms (%.2f TFLOPS), cublas %.3f ms (%.2f TFLOPS), triton/cublas = %.2f"
           % (t5, flops / t5 / 1e9, t6, flops / t6 / 1e9, t5 / t6))
 

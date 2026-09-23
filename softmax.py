@@ -1,5 +1,5 @@
-# 按行做 softmax，参考了官方 tutorial 02，但是用的是最朴素的写法（没有分块）
-# 每一行丢给一个 program，列数不够 2 的幂的地方用 mask 补上
+# row-wise softmax, based on official tutorial 02 but with the naive version (no inner blocking)
+# one program per row, columns padded up to the block size and masked off
 
 import torch
 import triton
@@ -15,7 +15,7 @@ def softmax_kernel(out_ptr, in_ptr, in_row_stride, out_row_stride, n_cols, BLOCK
     in_ptrs = in_ptr + row * in_row_stride + col_offs
     x = tl.load(in_ptrs, mask=mask, other=-float("inf"))
 
-    # 先减最大值，不然 exp 会溢出
+    # subtract the row max first, otherwise exp overflows
     x = x - tl.max(x, axis=0)
     e = tl.exp(x)
     e = e / tl.sum(e, axis=0)
@@ -34,11 +34,11 @@ def softmax(x):
 
 if __name__ == "__main__":
     torch.manual_seed(0)
-    # 故意用 500 列，不是 2 的幂，看看 mask 对不对
+    # 500 cols on purpose, not a power of two, to see if the mask works
     x = torch.randn(16, 500, device="cuda")
 
     out = softmax(x)
     ref = torch.softmax(x, dim=1)
-    print("和 torch 一致吗:", torch.allclose(out, ref))
-    print("最大误差:", (out - ref).abs().max().item())
-    print("每行加起来等于 1 吗:", out.sum(dim=1))
+    print("matches torch:", torch.allclose(out, ref))
+    print("max err:", (out - ref).abs().max().item())
+    print("each row sums to 1:", out.sum(dim=1))

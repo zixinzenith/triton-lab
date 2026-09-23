@@ -1,8 +1,8 @@
-# README 里那条待办：matmul 开 software pipelining (num_stages) 到底能快多少
-# 固定 BLOCK 128x64x32 不动，只改 num_stages 对比
-# num_stages 就是让下一块 k 的 load 和当前块的乘加重叠起来（编译器做流水线）
-# 跑下来 1→3 有提升，再往上就不稳定了，笔记本卡估计是温度/降频的影响，
-# 跑分最好多跑几遍看趋势，单次的数字不太可信
+# TODO from the README: how much does software pipelining (num_stages) actually help matmul
+# fixed BLOCK 128x64x32, only num_stages changes
+# num_stages makes the compiler overlap the load of the next k tile with the current mma
+# ran it: 1 -> 3 clearly helps, beyond that it gets noisy. laptop gpu, probably thermals,
+# so single numbers are not trustworthy, look at the trend instead
 
 import torch
 import triton
@@ -39,4 +39,4 @@ if __name__ == "__main__":
     print("cublas      : %.3f ms (%.2f TFLOPS)" % (t, flops / t / 1e9))
 
     run(a, b, c, 3)
-    print("结果和 torch 一致吗:", torch.allclose(c, torch.matmul(a, b), atol=1e-2, rtol=1e-2))
+    print("matches torch:", torch.allclose(c, torch.matmul(a, b), atol=1e-2, rtol=1e-2))
