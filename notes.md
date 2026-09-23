@@ -13,3 +13,7 @@
 - torch.allclose refuses to compare fp16 vs fp32 tensors, .float() first (stepped on this today).
 - causal attention saves more than half the compute: whole blocks above the diagonal get skipped without even loading k/v, only the diagonal block needs the fine grained m >= n mask. padded positions must be masked together with the causal condition, otherwise the result is silently wrong (stepped on this one too).
 - after multi-head + causal i am still a bit behind sdpa (0.335 vs 0.290 ms), their kernel scheduling is more refined, acceptable for now.
+- transpose was the coalescing lesson: moving one row per program only hits 60 GB/s (scattered stores, one element per transaction), tiling it and doing tl.trans in registers gets 216 GB/s. same math, 3.6x apart.
+- layernorm on padded rows: mean is fine with other=0.0 on the pad lanes, but variance is not, x - mean is nonzero there, must tl.where them to zero or the var is silently wrong.
+- epilogue fusion (bias+relu inside the matmul kernel): no real win when the gemm dominates (2048^3), but 1.6x on skinny shapes (16384x256x512) where torch wastes time round-tripping the intermediate through memory.
+- allclose with rtol matters: my fused matmul max err was 0.0625 and still fine, because the outputs are ~30 and rtol=1e-2 covers it. atol alone would have failed.
