@@ -9,6 +9,8 @@
 - relu.py 自己写的 relu，外加一个 add + relu 融合的版本
 - softmax.py 按行的 softmax（朴素写法，没分块）
 - matmul.py 分块矩阵乘法（tl.dot），后面加了个 autotune 版本
+- num_stages.py matmul 上试 num_stages 流水线的对比
+- attention.py flash attention 的简化版（online softmax，不带 causal mask）
 - benchmark.py 和 torch 自带算子对比耗时
 - notes.md 踩坑记录
 
@@ -23,11 +25,14 @@ python vector_add.py
 python relu.py
 python softmax.py
 python matmul.py
+python num_stages.py
+python attention.py
 python benchmark.py
 ```
 
 ## 待办
 
-- [ ] matmul 开 software pipelining（num_stages），看看能追回多少差距
-- [ ] 看 flash attention 是怎么做分块 softmax 的
+- [x] matmul 开 software pipelining（num_stages），看看能追回多少差距
+- [x] 看 flash attention 是怎么做分块 softmax 的
+- [ ] 给 attention.py 加上 causal mask 和多头的支持
 - [ ] 学一下 ncu，给 matmul 做个 profile，看瓶颈在哪个

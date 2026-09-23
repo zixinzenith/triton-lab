@@ -8,3 +8,6 @@
 - GPU 上计时要用 cuda event 加 synchronize，用 time.time() 量出来的是乱的（kernel 是异步的）。
 - fp16 的 matmul 结果和 torch 差一点点是正常的，累加顺序不完全一样，比较时给容差。
 - autotune 第一次调用会慢（它要把每个配置都跑一遍），之后再走缓存的 best_config。
+- flash attention 的精髓是 online softmax：kernel 里保存每行的 max 和 sum(exp)，每算完一块就 rescale（alpha = exp(m_old - m_new)），这样不用把 M x N 的分数矩阵写回显存。
+- torch.allclose 不能直接比 fp16 和 fp32 的 tensor，要先 .float() 转过来（今天踩的）。
+- 跑分时单次数字不可信，笔记本卡温度一高就降频，多跑几遍看趋势。
