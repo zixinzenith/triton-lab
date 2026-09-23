@@ -3,6 +3,13 @@
 preparing for gpu related jobs, learning kernel programming starting from triton. this repo is the practice ground.
 most of the code follows the official tutorials with my own tweaks. every script prints a comparison against torch, benchmark.py does cuda event timing.
 
+## highlights (all measured on this laptop gpu)
+
+- blocked matmul (64x64x32, stages 3): 24-25 TFLOPS at 2048^3 fp16, ~80% of the tensor roofline, beats cublas at this shape
+- GQA (hkv=8 instead of 32): attention kernel 3.5 -> 2.5 ms at 1x32x2048x128 causal
+- tiled transpose hits 216 GB/s vs 60 GB/s naive, the coalescing lesson in numbers
+- fused bias+gelu epilogue: 1.6x over the unfused torch version on skinny shapes
+
 currently:
 
 - vector_add.py vector add, the hello world
